@@ -250,6 +250,9 @@ const POWERUP_DEFS = {
   nova:   { label: 'NOVA',    shape: 'star',     color: '#ff7a1a', duration: 0,  weight: 5  },
 };
 
+const SHIELD_RADIUS = 21;  // radio del círculo (y de la zona de impacto) con escudo
+const SHIELD_GRACE  = 0.5; // invencibilidad breve tras absorber un golpe
+
 function pickWeighted(defs) {
   const entries = Object.entries(defs);
   let r = rand(0, entries.reduce((sum, [, d]) => sum + d.weight, 0));
@@ -396,6 +399,18 @@ function applyPowerUp(type) {
   for (let i = 0; i < 10; i++) particles.push(new Particle(ship.x, ship.y));
 }
 
+// El escudo absorbe un único impacto: destruye el asteroide (se parte como
+// con una bala) y se consume. Unos instantes de gracia evitan que muera con
+// uno de los fragmentos recién creados pegados a la nave.
+function absorbHitWithShield(a) {
+  a.dead = true;
+  score += POINTS[a.size];
+  explode(a.x, a.y, a.size * 5);
+  asteroids = asteroids.filter(x => !x.dead).concat(a.split());
+  powers.shield = 0;
+  ship.invincible = SHIELD_GRACE;
+}
+
 function killShip() {
   explode(ship.x, ship.y, 14);
   ship.dead = true;
@@ -474,9 +489,12 @@ function update(dt) {
 
   // Nave vs asteroide
   if (ship.invincible <= 0) {
+    // Con escudo activo la zona de impacto es la del círculo visible
+    const hitRadius = powers.shield > 0 ? SHIELD_RADIUS : ship.radius;
     for (const a of asteroids) {
-      if (dist(ship, a) < ship.radius + a.radius * 0.82) {
-        killShip();
+      if (dist(ship, a) < hitRadius + a.radius * 0.82) {
+        if (powers.shield > 0) absorbHitWithShield(a);
+        else killShip();
         break;
       }
     }
@@ -556,6 +574,22 @@ function drawOverlay(title, sub) {
   ctx.fillText(sub, W / 2, H / 2 + 22);
 }
 
+// Círculo de energía que pulsa; parpadea cuando quedan menos de 1.5 s
+function drawShield() {
+  if (ship.dead || powers.shield <= 0) return;
+  if (powers.shield < 1.5 && Math.floor(powers.shield * 8) % 2 === 0) return;
+  const t = performance.now() / 1000;
+  const pulse = Math.sin(t * 8);
+  ctx.save();
+  ctx.strokeStyle = POWERUP_DEFS.shield.color;
+  ctx.globalAlpha = 0.65 + 0.2 * pulse;
+  ctx.lineWidth   = 1.5;
+  ctx.beginPath();
+  ctx.arc(ship.x, ship.y, SHIELD_RADIUS + pulse, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function draw() {
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, W, H);
@@ -565,6 +599,7 @@ function draw() {
   powerups.forEach(p => p.draw());
   bullets.forEach(b => b.draw());
   ship.draw();
+  drawShield();
 
   drawHUD();
 
