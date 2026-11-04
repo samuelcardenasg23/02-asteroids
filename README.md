@@ -8,7 +8,7 @@ Clon del clásico arcade **Asteroids** implementado en canvas HTML5 puro, sin de
 
 ## Descripción del juego
 
-Nave espacial en un campo de asteroides con envolvimiento de bordes (el espacio es toroidal). Destruye asteroides para sumar puntos: los grandes se parten en medianos, los medianos en pequeños. Incluye power-ups especiales y tipos de asteroides únicos como la estrella fugaz...
+Nave espacial en un campo de asteroides con envolvimiento de bordes (el espacio es toroidal). Destruye asteroides para sumar puntos: los grandes se parten en medianos, los medianos en pequeños. Incluye 5 power-ups especiales (ver más abajo) y, próximamente, tipos de asteroides únicos como la estrella fugaz...
 
 ## Tecnologías
 
@@ -42,6 +42,20 @@ Luego visita `http://localhost:3000`.
 | Grande    | 20     |
 | Mediano   | 50     |
 | Pequeño   | 100    |
+
+## Power-ups
+
+Al destruir un asteroide hay un 10 % de probabilidad de que suelte un ítem (máx. 2 en pantalla a la vez). Flota unos 8 s, parpadea antes de desaparecer y se recoge tocándolo con la nave. Volver a recoger uno activo reinicia su temporizador. Al perder una vida se pierden los efectos temporales, pero la Bomba Nova guardada se conserva.
+
+| Ítem                  | Figura    | Efecto                                                                  | Duración |
+| --------------------- | --------- | ----------------------------------------------------------------------- | -------- |
+| **Escudo**            | Hexágono  | Absorbe un impacto de asteroide (y lo destruye)                         | 5 s      |
+| **Disparo triple**    | Triángulo | 3 balas en abanico por disparo                                          | 10 s     |
+| **Slow motion**       | Rombo     | Los asteroides van a la mitad de velocidad                              | 6 s      |
+| **Bomba Nova**        | Estrella  | Destruye todos los asteroides; se guarda (máx. 1) y se activa con `B`   | 1 uso    |
+| **Hiperpropulsión**   | Cuadrado  | Más empuje, giro y velocidad máxima                                     | 8 s      |
+
+Los efectos activos se muestran como barras abajo a la izquierda; la Nova guardada aparece abajo a la derecha como `NOVA [B]`.
 
 ## Características
 
