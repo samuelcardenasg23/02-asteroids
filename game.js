@@ -144,9 +144,11 @@ class Ship {
     if (this.invincible    > 0) this.invincible    -= dt;
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
 
-    const ROT   = 3.5;   // rad/s
-    const THRUST = 260;  // px/s²
-    const DRAG   = 0.987;
+    const hyper  = powers.hyper > 0;
+    const ROT    = hyper ? 5   : 3.5;   // rad/s
+    const THRUST = hyper ? 520 : 260;   // px/s²
+    const MAX_SPEED = hyper ? 650 : 400; // px/s
+    const DRAG   = 0.987;               // factor por frame a 60 fps
 
     if (keys['ArrowLeft'])  this.angle -= ROT * dt;
     if (keys['ArrowRight']) this.angle += ROT * dt;
@@ -157,8 +159,20 @@ class Ship {
       this.vy += Math.sin(this.angle) * THRUST * dt;
     }
 
-    this.vx *= DRAG;
-    this.vy *= DRAG;
+    // Fricción independiente de los FPS (equivale a DRAG por frame a 60 fps)
+    const drag = Math.pow(DRAG, dt * 60);
+    this.vx *= drag;
+    this.vy *= drag;
+
+    // Tope de velocidad. Si se pasa (p. ej. al acabar la hiperpropulsión) se
+    // frena de forma gradual en vez de pegar un tirón seco.
+    const speed = Math.hypot(this.vx, this.vy);
+    if (speed > MAX_SPEED) {
+      const k = Math.max(MAX_SPEED / speed, 1 - OVERSPEED_BRAKE * dt);
+      this.vx *= k;
+      this.vy *= k;
+    }
+
     this.x = wrap(this.x + this.vx * dt, W);
     this.y = wrap(this.y + this.vy * dt, H);
   }
@@ -197,11 +211,12 @@ class Ship {
 
     // Llama del propulsor
     if (this.thrusting && Math.random() > 0.35) {
+      const hyper = powers.hyper > 0;
       ctx.beginPath();
       ctx.moveTo(-8, -4);
-      ctx.lineTo(-8 - rand(6, 14), 0);
+      ctx.lineTo(-8 - (hyper ? rand(16, 30) : rand(6, 14)), 0);
       ctx.lineTo(-8,  4);
-      ctx.strokeStyle = 'rgba(255, 130, 0, 0.85)';
+      ctx.strokeStyle = hyper ? POWERUP_DEFS.hyper.color : 'rgba(255, 130, 0, 0.85)';
       ctx.stroke();
     }
 
@@ -256,7 +271,9 @@ const POWERUP_DEFS = {
   nova:   { label: 'NOVA',    shape: 'star',     color: '#ff7a1a', duration: 0,  weight: 5  },
 };
 
-const NOVA_FX_TIME = 0.6;   // duración del anillo expansivo en segundos
+const OVERSPEED_BRAKE = 2;  // fracción/s que se frena la nave si supera el tope
+
+const NOVA_FX_TIME = 0.6;  // duración del anillo expansivo en segundos
 const NOVA_KEY     = 'KeyB';
 
 const SLOW_FACTOR = 0.5;   // los asteroides van a la mitad de velocidad
