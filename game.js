@@ -165,7 +165,9 @@ class Ship {
     const NOSE = 21;
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
-    return [new Bullet(ox, oy, this.angle)];
+    // Con disparo triple salen 3 balas en abanico: centro y ±TRIPLE_SPREAD
+    const offsets = powers.triple > 0 ? [-TRIPLE_SPREAD, 0, TRIPLE_SPREAD] : [0];
+    return offsets.map(o => new Bullet(ox, oy, this.angle + o));
   }
 
   draw() {
@@ -249,6 +251,8 @@ const POWERUP_DEFS = {
   hyper:  { label: 'HIPER',   shape: 'square',   color: '#ff4df0', duration: 8,  weight: 20 },
   nova:   { label: 'NOVA',    shape: 'star',     color: '#ff7a1a', duration: 0,  weight: 5  },
 };
+
+const TRIPLE_SPREAD = 0.25; // rad (~14°) entre la bala central y cada lateral
 
 const SHIELD_RADIUS = 21;  // radio del círculo (y de la zona de impacto) con escudo
 const SHIELD_GRACE  = 0.5; // invencibilidad breve tras absorber un golpe
