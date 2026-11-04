@@ -256,7 +256,10 @@ const POWERUP_DEFS = {
   nova:   { label: 'NOVA',    shape: 'star',     color: '#ff7a1a', duration: 0,  weight: 5  },
 };
 
-const SLOW_FACTOR = 0.5;    // los asteroides van a la mitad de velocidad
+const NOVA_FX_TIME = 0.6;   // duración del anillo expansivo en segundos
+const NOVA_KEY     = 'KeyB';
+
+const SLOW_FACTOR = 0.5;   // los asteroides van a la mitad de velocidad
 const SLOW_TINT   = '#8fa8ff';
 
 const TRIPLE_SPREAD = 0.25; // rad (~14°) entre la bala central y cada lateral
@@ -351,6 +354,7 @@ class PowerUp {
 
 // ── Estado del juego ──────────────────────────────────────────────────────────
 let ship, bullets, asteroids, particles, powerups;
+let novaFx;       // anillos expansivos de la Bomba Nova: { x, y, t }
 let powers;       // segundos restantes por efecto: { shield, triple, slow, hyper }
 let novaCharges;  // cargas de Bomba Nova guardadas (máx. 1)
 let score, lives, level;
@@ -375,6 +379,7 @@ function initGame() {
   asteroids = [];
   particles = [];
   powerups  = [];
+  novaFx    = [];
   powers    = { shield: 0, triple: 0, slow: 0, hyper: 0 };
   novaCharges = 0;
   score  = 0;
@@ -387,7 +392,6 @@ function initGame() {
 function nextLevel() {
   level++;
   bullets   = [];
-  particles = [];
   powerups  = [];
   ship.reset();
   spawnAsteroids(3 + level);
@@ -408,6 +412,19 @@ function applyPowerUp(type) {
   if (type === 'nova') novaCharges = 1;
   else powers[type] = def.duration;   // si ya estaba activo, el timer se reinicia
   for (let i = 0; i < 10; i++) particles.push(new Particle(ship.x, ship.y));
+}
+
+// Bomba Nova: destruye todos los asteroides a la vez, sin partirlos. Al
+// quedar el campo vacío, update() avanza de nivel con la lógica de siempre.
+function useNova() {
+  novaCharges = 0;
+  for (const a of asteroids) {
+    score += POINTS[a.size];
+    explode(a.x, a.y, a.size * 5);
+    a.dead = true;
+  }
+  asteroids = [];
+  novaFx.push({ x: ship.x, y: ship.y, t: 0 });
 }
 
 // El escudo absorbe un único impacto: destruye el asteroide (se parte como
@@ -444,6 +461,9 @@ function asteroidDt(dt) {
 }
 
 function update(dt) {
+  novaFx.forEach(f => f.t += dt);
+  novaFx = novaFx.filter(f => f.t < NOVA_FX_TIME);
+
   if (state === 'gameover') {
     if (pressed('Space')) initGame();
     particles.forEach(p => p.update(dt));
@@ -453,6 +473,7 @@ function update(dt) {
 
   if (state === 'dead') {
     deadTimer -= dt;
+    pressed(NOVA_KEY);  // descarta pulsaciones hechas mientras la nave estaba destruida
     particles.forEach(p => p.update(dt));
     particles = particles.filter(p => !p.dead);
     asteroids.forEach(a => a.update(asteroidDt(dt)));
@@ -466,6 +487,9 @@ function update(dt) {
   if (pressed('Space')) {
     bullets.push(...ship.tryShoot());
   }
+
+  // Se consume siempre la pulsación para que no quede "guardada" sin cargas
+  if (pressed(NOVA_KEY) && novaCharges > 0) useNova();
 
   ship.update(dt);
   bullets.forEach(b => b.update(dt));
@@ -591,6 +615,28 @@ function drawOverlay(title, sub) {
   ctx.fillText(sub, W / 2, H / 2 + 22);
 }
 
+// Dos anillos concéntricos que se expanden desde la nave y se desvanecen
+function drawNovaFx() {
+  const MAX_R = Math.hypot(W, H);
+  const color = POWERUP_DEFS.nova.color;
+  ctx.save();
+  ctx.strokeStyle = color;
+  for (const f of novaFx) {
+    const k = f.t / NOVA_FX_TIME;
+    const eased = 1 - (1 - k) * (1 - k);  // arranca rápido y frena
+    ctx.globalAlpha = 1 - k;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, eased * MAX_R, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, eased * MAX_R * 0.8, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 // Círculo de energía que pulsa; parpadea cuando quedan menos de 1.5 s
 function drawShield() {
   if (ship.dead || powers.shield <= 0) return;
@@ -617,6 +663,7 @@ function draw() {
   bullets.forEach(b => b.draw());
   ship.draw();
   drawShield();
+  drawNovaFx();
 
   drawHUD();
 
