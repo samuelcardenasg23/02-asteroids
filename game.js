@@ -105,7 +105,11 @@ class Asteroid {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rot);
-    ctx.strokeStyle = '#fff';
+    // Tono azulado mientras dura slow motion; vuelve a blanco al final
+    // con un parpadeo para avisar de que se acaba (último 1.5 s)
+    const slowTint = powers.slow > 0 &&
+      !(powers.slow < 1.5 && Math.floor(powers.slow * 8) % 2 === 0);
+    ctx.strokeStyle = slowTint ? SLOW_TINT : '#fff';
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
     ctx.beginPath();
@@ -251,6 +255,9 @@ const POWERUP_DEFS = {
   hyper:  { label: 'HIPER',   shape: 'square',   color: '#ff4df0', duration: 8,  weight: 20 },
   nova:   { label: 'NOVA',    shape: 'star',     color: '#ff7a1a', duration: 0,  weight: 5  },
 };
+
+const SLOW_FACTOR = 0.5;    // los asteroides van a la mitad de velocidad
+const SLOW_TINT   = '#8fa8ff';
 
 const TRIPLE_SPREAD = 0.25; // rad (~14°) entre la bala central y cada lateral
 
@@ -430,6 +437,12 @@ function killShip() {
 }
 
 // ── Update ────────────────────────────────────────────────────────────────────
+// Con slow motion solo los asteroides (movimiento y rotación) usan un dt
+// reducido; nave, balas, partículas e ítems siguen a velocidad normal.
+function asteroidDt(dt) {
+  return powers.slow > 0 ? dt * SLOW_FACTOR : dt;
+}
+
 function update(dt) {
   if (state === 'gameover') {
     if (pressed('Space')) initGame();
@@ -442,7 +455,7 @@ function update(dt) {
     deadTimer -= dt;
     particles.forEach(p => p.update(dt));
     particles = particles.filter(p => !p.dead);
-    asteroids.forEach(a => a.update(dt));
+    asteroids.forEach(a => a.update(asteroidDt(dt)));
     powerups.forEach(p => p.update(dt));
     powerups = powerups.filter(p => !p.dead);
     if (deadTimer <= 0) { state = 'playing'; ship.reset(); }
@@ -456,7 +469,7 @@ function update(dt) {
 
   ship.update(dt);
   bullets.forEach(b => b.update(dt));
-  asteroids.forEach(a => a.update(dt));
+  asteroids.forEach(a => a.update(asteroidDt(dt)));
   particles.forEach(p => p.update(dt));
   powerups.forEach(p => p.update(dt));
 
